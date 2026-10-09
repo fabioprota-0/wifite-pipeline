@@ -9,11 +9,11 @@ tenha sido escrito. Por isso so tratamos um arquivo depois que ele fica
 
 from __future__ import annotations
 
+import contextlib
 import signal
 import threading
-import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from . import capture as capture_mod
 from .config import Settings
@@ -24,14 +24,14 @@ class Watcher:
     """Varre os diretorios configurados e enfileira capturas novas."""
 
     def __init__(self, settings: Settings, state: State,
-                 on_new: Optional[Callable[[Target], None]] = None,
+                 on_new: Callable[[Target], None] | None = None,
                  verbose: bool = False):
         self.settings = settings
         self.state = state
         self.on_new = on_new
         self.verbose = verbose
         # Assinatura (tamanho, mtime) da ultima varredura, para detectar estabilidade.
-        self._signatures: Dict[str, Tuple[int, float]] = {}
+        self._signatures: dict[str, tuple[int, float]] = {}
         self._stop = threading.Event()
 
     # -- log --------------------------------------------------------------
@@ -40,9 +40,9 @@ class Watcher:
             print(f"[watcher] {message}", flush=True)
 
     # -- varredura --------------------------------------------------------
-    def scan_once(self) -> List[Target]:
+    def scan_once(self) -> list[Target]:
         """Uma passada completa. Devolve apenas os alvos recem-enfileirados."""
-        added: List[Target] = []
+        added: list[Target] = []
         for directory in self.settings.watch_dirs:
             d = Path(directory)
             if not d.is_dir():
@@ -72,11 +72,10 @@ class Watcher:
             return False          # primeira vez que vemos: espere a proxima
         if previous != sig:
             return False          # ainda sendo escrito
-        if st.st_size == 0:
-            return False          # arquivo vazio nao serve
-        return True
+        # Estavel e com conteudo: serve. Arquivo vazio nunca serve.
+        return st.st_size > 0
 
-    def _process(self, path: Path) -> Optional[Target]:
+    def _process(self, path: Path) -> Target | None:
         """Inspeciona o arquivo e, se valido, enfileira. None se nao servir."""
         info = capture_mod.inspect(path)
         if not info.valid:
@@ -118,7 +117,7 @@ class Watcher:
         return target
 
     # -- laco -------------------------------------------------------------
-    def run_forever(self, interval: Optional[float] = None) -> None:
+    def run_forever(self, interval: float | None = None) -> None:
         delay = interval if interval is not None else self.settings.poll_interval
         self._install_signal_handlers()
         self._say(f"vigia ativo em: {', '.join(self.settings.watch_dirs)}")
@@ -131,13 +130,11 @@ class Watcher:
         self._say("encerrado")
 
     def _install_signal_handlers(self) -> None:
-        def handler(signum, frame):   # noqa: ARG001
+        def handler(signum, frame):
             self._stop.set()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
-                signal.signal(sig, handler)
-            except (ValueError, OSError):
-                pass  # fora da thread principal
+            with contextlib.suppress(ValueError, OSError):
+                signal.signal(sig, handler)  # fora da thread principal
 
     def stop(self) -> None:
         self._stop.set()

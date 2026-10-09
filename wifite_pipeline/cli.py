@@ -16,20 +16,22 @@ Comandos:
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional
 
-from . import __version__
+from . import __version__, connector, tui
 from . import capture as capture_mod
-from . import connector
-from . import tui
-from .config import (CONFIG_FILE, TOOLS, Settings, find_tool, missing_required_tools,
-                     resolve_wordlist, tool_available)
+from .config import (
+    CONFIG_FILE,
+    TOOLS,
+    Settings,
+    find_tool,
+    missing_required_tools,
+    resolve_wordlist,
+)
 from .cracker import Cracker
-from .state import STATUS_EXHAUSTED, STATUS_FOUND, State
+from .state import STATUS_EXHAUSTED, State
 from .tmux_layout import build_panes, launch, print_manual_layout, tmux_available
 from .watcher import Watcher
 
@@ -90,10 +92,10 @@ def open_state(settings: Settings) -> State:
     except OSError as exc:
         print(tui.paint(f"falha ao abrir o banco {settings.db_path}: {exc}", tui.C.RED))
         print(tui.paint("  Use --state-dir CAMINHO para escolher outro lugar.", tui.C.GREY))
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
-def export_all(settings: Settings, state: State) -> List[Path]:
+def export_all(settings: Settings, state: State) -> list[Path]:
     """Regrava os tres formatos de resultado. Barato o bastante para cada achado."""
     written = []
     written.append(state.export_results(settings.results_dir / "cracked.txt", "txt"))
@@ -550,7 +552,7 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):

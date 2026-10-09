@@ -17,9 +17,13 @@ try:
 except ImportError:      # execucao direta: python tests/test_capture.py
     from _base import TempCase as _BaseTempCase  # type: ignore[no-redef]
 
-from wifite_pipeline import capture
-from wifite_pipeline.capture import (CaptureInfo, clean_essid, from_filename,
-                                     is_capture_file, to_22000)
+from wifite_pipeline.capture import (
+    CaptureInfo,
+    clean_essid,
+    from_filename,
+    is_capture_file,
+    to_22000,
+)
 
 
 class TempCase(_BaseTempCase):

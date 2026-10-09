@@ -22,10 +22,10 @@ quatro comandos prontos para colar.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import List, Optional
 
 from .config import Settings
 
@@ -40,8 +40,8 @@ class Pane:
     description: str
 
 
-def build_panes(settings: Settings, wifite_args: str = "", wordlist: Optional[str] = None,
-                python: str = "wp") -> List[Pane]:
+def build_panes(settings: Settings, wifite_args: str = "", wordlist: str | None = None,
+                python: str = "wp") -> list[Pane]:
     """Os quatro comandos, na ordem em que serao criados."""
     wl = f" --wordlist {wordlist}" if wordlist else ""
 
@@ -72,10 +72,8 @@ def session_exists(name: str) -> bool:
 
 
 def kill_session(name: str) -> None:
-    try:
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
         subprocess.run([TMUX, "kill-session", "-t", name], capture_output=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        pass
 
 
 def _tmux(*args: str) -> subprocess.CompletedProcess:
@@ -83,8 +81,8 @@ def _tmux(*args: str) -> subprocess.CompletedProcess:
                           errors="replace", timeout=20)
 
 
-def launch(settings: Settings, panes: List[Pane], attach: bool = True,
-           recreate: bool = False, workdir: Optional[str] = None) -> int:
+def launch(settings: Settings, panes: list[Pane], attach: bool = True,
+           recreate: bool = False, workdir: str | None = None) -> int:
     """Cria a sessao com os paineis e (opcionalmente) anexa a ela."""
     if not tmux_available():
         print("tmux nao encontrado. Instale com: sudo apt install tmux")
@@ -94,7 +92,7 @@ def launch(settings: Settings, panes: List[Pane], attach: bool = True,
     if session_exists(name):
         if not recreate:
             print(f"A sessao tmux '{name}' ja existe. Anexando...")
-            print(f"  (para recriar do zero: wp run --recreate)")
+            print("  (para recriar do zero: wp run --recreate)")
             if attach:
                 return subprocess.call([TMUX, "attach-session", "-t", name])
             return 0
@@ -102,7 +100,7 @@ def launch(settings: Settings, panes: List[Pane], attach: bool = True,
 
     # Painel 1 vira a janela inicial da sessao.
     first = panes[0]
-    args: List[str] = ["new-session", "-d", "-s", name, "-n", "pipeline"]
+    args: list[str] = ["new-session", "-d", "-s", name, "-n", "pipeline"]
     if workdir:
         args += ["-c", workdir]
     args += [first.command]
@@ -137,7 +135,7 @@ def launch(settings: Settings, panes: List[Pane], attach: bool = True,
     return 0
 
 
-def print_manual_layout(panes: List[Pane]) -> None:
+def print_manual_layout(panes: list[Pane]) -> None:
     """Modo --no-tmux: quatro comandos prontos para colar em quatro terminais."""
     print("\nModo sem tmux: abra 4 terminais e cole um comando em cada.\n")
     for pane in panes:

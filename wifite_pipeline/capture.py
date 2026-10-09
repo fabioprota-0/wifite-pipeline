@@ -20,7 +20,6 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 MAC = r"(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}"
 
@@ -59,9 +58,9 @@ class CaptureInfo:
     """O que conseguimos descobrir sobre um arquivo de captura."""
 
     path: Path
-    bssid: Optional[str] = None
-    essid: Optional[str] = None
-    channel: Optional[int] = None
+    bssid: str | None = None
+    essid: str | None = None
+    channel: int | None = None
     has_handshake: bool = False
     has_pmkid: bool = False
     source: str = "desconhecida"   # de onde vieram os metadados
@@ -83,7 +82,7 @@ class CaptureInfo:
         return "desconhecido"
 
 
-def normalize_bssid(value: Optional[str]) -> Optional[str]:
+def normalize_bssid(value: str | None) -> str | None:
     if not value:
         return None
     raw = re.sub(r"[^0-9a-fA-F]", "", value)
@@ -93,7 +92,7 @@ def normalize_bssid(value: Optional[str]) -> Optional[str]:
     return ":".join(raw[i:i + 2] for i in range(0, 12, 2))
 
 
-def clean_essid(essid: Optional[str]) -> Optional[str]:
+def clean_essid(essid: str | None) -> str | None:
     """Descarta restos de nome de arquivo que nao sao nome de rede.
 
     Rede de seguranca: se algum padrao deixar escapar um "handshake_" ou um
@@ -114,7 +113,7 @@ def clean_essid(essid: Optional[str]) -> Optional[str]:
     return cleaned or None
 
 
-def from_filename(path: Path) -> Tuple[Optional[str], Optional[str]]:
+def from_filename(path: Path) -> tuple[str | None, str | None]:
     """Extrai (bssid, essid) apenas do nome do arquivo."""
     name = path.name
     for pattern in NAME_PATTERNS:
@@ -125,7 +124,7 @@ def from_filename(path: Path) -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def _run(cmd: List[str], timeout: int = 30) -> str:
+def _run(cmd: list[str], timeout: int = 30) -> str:
     """Executa um comando devolvendo stdout+stderr; nunca levanta excecao."""
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
@@ -135,7 +134,7 @@ def _run(cmd: List[str], timeout: int = 30) -> str:
         return ""
 
 
-def probe_with_tshark(path: Path) -> Optional[Tuple[Optional[str], Optional[str], bool, bool]]:
+def probe_with_tshark(path: Path) -> tuple[str | None, str | None, bool, bool] | None:
     """(bssid, essid, tem_handshake, tem_pmkid) via tshark, ou None se indisponivel."""
     if not shutil.which("tshark"):
         return None
@@ -151,7 +150,7 @@ def probe_with_tshark(path: Path) -> Optional[Tuple[Optional[str], Optional[str]
             break
     eapol = _run(["tshark", "-r", str(path), "-Y", "eapol", "-T", "fields",
                   "-e", "wlan.bssid", "-c", "5"])
-    has_hs = any(MAC_RE_FULL.match(l.strip()) for l in eapol.splitlines() if l.strip())
+    has_hs = any(MAC_RE_FULL.match(line.strip()) for line in eapol.splitlines() if line.strip())
     has_pmkid = "PMKID" in _run(["tshark", "-r", str(path), "-Y", "eapol.type == 2",
                                  "-T", "fields", "-e", "eapol.keydes.type", "-c", "5"])
     if bssid or has_hs or has_pmkid:
@@ -162,7 +161,7 @@ def probe_with_tshark(path: Path) -> Optional[Tuple[Optional[str], Optional[str]
 MAC_RE_FULL = re.compile(rf"^{MAC}$")
 
 
-def probe_with_aircrack(path: Path) -> Optional[Tuple[Optional[str], Optional[str], bool, bool]]:
+def probe_with_aircrack(path: Path) -> tuple[str | None, str | None, bool, bool] | None:
     """Mesma informacao, porem via aircrack-ng (presente praticamente sempre)."""
     if not shutil.which("aircrack-ng"):
         return None
@@ -217,7 +216,7 @@ def inspect(path: Path, deep: bool = True) -> CaptureInfo:
     return info
 
 
-def to_22000(capture: Path, out_dir: Path) -> Optional[Path]:
+def to_22000(capture: Path, out_dir: Path) -> Path | None:
     """Converte .cap/.pcapng para o formato 22000 do hashcat.
 
     Devolve o caminho do hash, ou None se a conversao nao produziu nada util
@@ -243,7 +242,7 @@ def to_22000(capture: Path, out_dir: Path) -> Optional[Path]:
     return None
 
 
-def is_capture_file(path: Path, globs: Optional[List[str]] = None) -> bool:
+def is_capture_file(path: Path, globs: list[str] | None = None) -> bool:
     """Decide se vale a pena inspecionar este arquivo."""
     path = Path(path)
     if not path.is_file():

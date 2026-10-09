@@ -15,10 +15,17 @@ import os
 import shutil
 import sys
 import time
-from typing import Iterable, List, Optional, Sequence
+from collections.abc import Iterable, Sequence
 
-from .state import (STATUS_CRACKING, STATUS_ERROR, STATUS_EXHAUSTED, STATUS_FOUND,
-                    STATUS_PENDING, STATUS_SKIPPED, State, Target)
+from .state import (
+    STATUS_CRACKING,
+    STATUS_ERROR,
+    STATUS_EXHAUSTED,
+    STATUS_FOUND,
+    STATUS_PENDING,
+    STATUS_SKIPPED,
+    State,
+)
 
 
 def color_enabled() -> bool:
@@ -77,7 +84,7 @@ def truncate(text: str, width: int) -> str:
 
 
 def table(headers: Sequence[str], rows: Iterable[Sequence[str]],
-          widths: Optional[Sequence[int]] = None) -> str:
+          widths: Sequence[int] | None = None) -> str:
     rows = [list(map(str, r)) for r in rows]
     if widths is None:
         widths = []
@@ -87,7 +94,7 @@ def table(headers: Sequence[str], rows: Iterable[Sequence[str]],
                 if i < len(r):
                     longest = max(longest, len(r[i]))
             widths.append(min(longest, 40))
-    header_line = "  ".join(paint(str(h).ljust(w)[:w], C.BOLD) for h, w in zip(headers, widths))
+    header_line = "  ".join(paint(str(h).ljust(w)[:w], C.BOLD) for h, w in zip(headers, widths, strict=False))
     sep = paint("  ".join("-" * w for w in widths), C.GREY)
     body = []
     for r in rows:
@@ -96,14 +103,13 @@ def table(headers: Sequence[str], rows: Iterable[Sequence[str]],
             value = str(r[i]) if i < len(r) else ""
             cells.append(truncate(value, w).ljust(w))
         body.append("  ".join(cells))
-    return "\n".join([header_line, sep] + body)
+    return "\n".join([header_line, sep, *body])
 
 
 # ---------------------------------------------------------------------------
 # Telas
 # ---------------------------------------------------------------------------
 def banner() -> str:
-    counts_hint = "wifite-pipeline"
     art = [
         "  wifite-pipeline  ",
         "  captura -> quebra -> resultado -> conexao",
@@ -157,7 +163,7 @@ def results_view(state: State, limit: int = 40) -> str:
         ])
     body = table(["SSID", "BSSID", "SENHA", "METODO", "QUANDO"], rows,
                  widths=[24, 17, 22, 14, 16])
-    footer = paint(f"\n  exportar: wp export senhas.json    importar: wp import arquivo.txt", C.GREY)
+    footer = paint("\n  exportar: wp export senhas.json    importar: wp import arquivo.txt", C.GREY)
     return header + "\n\n" + body + "\n" + footer
 
 
@@ -188,7 +194,7 @@ def notify_desktop(title: str, message: str) -> None:
 # ---------------------------------------------------------------------------
 # Modo ao vivo (usado pelos paineis 3 e 4)
 # ---------------------------------------------------------------------------
-def live_loop(render, interval: float = 2.0, iterations: Optional[int] = None) -> None:
+def live_loop(render, interval: float = 2.0, iterations: int | None = None) -> None:
     """Redesenha a tela periodicamente. Ctrl+C sai limpo."""
     count = 0
     while iterations is None or count < iterations:
@@ -205,5 +211,5 @@ def live_loop(render, interval: float = 2.0, iterations: Optional[int] = None) -
             break
 
 
-def rule(width: Optional[int] = None) -> str:
+def rule(width: int | None = None) -> str:
     return paint("-" * (width or min(term_width(), 100)), C.GREY)

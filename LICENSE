@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 wifite-pipeline contributors
+Copyright (c) 2026 Fabio Prota
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,18 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-NOTA SOBRE LICENCIAMENTO
-
-Este projeto e um ORQUESTRADOR independente. Ele nao contem codigo-fonte do
-wifite: invoca o wifite (e outras ferramentas do ecossistema aircrack-ng /
-hcxtools / hashcat) como programas separados, via linha de comando.
-
-O wifite2 e distribuido sob GPL. Ao executar o wifite como um programa
-separado, este orquestrador nao se torna obra derivada dele -- o mesmo
-arranjo usado por diversos wrappers livremente licenciados.
-
-Se voce copiar codigo do wifite para dentro deste projeto, a licenca
-resultante passa a ser GPL e este arquivo precisa ser trocado.
----------------------------------------------------------------------------

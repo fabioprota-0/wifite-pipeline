@@ -12,7 +12,6 @@ import os
 import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
 
 APP_NAME = "wifite-pipeline"
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / APP_NAME
@@ -26,7 +25,7 @@ DEFAULT_STATE_DIR = Path(os.environ.get("WP_STATE_DIR", Path.home() / ".local" /
 # ---------------------------------------------------------------------------
 # required=True  -> sem ela o pipeline nao funciona
 # required=False -> habilita um recurso extra; a ausencia apenas desabilita
-TOOLS: Dict[str, Dict[str, object]] = {
+TOOLS: dict[str, dict[str, object]] = {
     "wifite": {
         "required": True,
         "apt": "wifite",
@@ -75,7 +74,7 @@ TOOLS: Dict[str, Dict[str, object]] = {
 }
 
 
-def find_tool(name: str) -> Optional[str]:
+def find_tool(name: str) -> str | None:
     """Caminho absoluto do binario, ou None se ausente."""
     return shutil.which(name)
 
@@ -84,7 +83,7 @@ def tool_available(name: str) -> bool:
     return find_tool(name) is not None
 
 
-def missing_required_tools() -> List[str]:
+def missing_required_tools() -> list[str]:
     return [n for n, m in TOOLS.items() if m["required"] and not find_tool(n)]
 
 
@@ -95,7 +94,7 @@ class Settings:
     # --- Onde procurar capturas -------------------------------------------
     # O wifite grava handshakes em `hs/` relativo ao diretorio de trabalho.
     # Em vez de confiar cegamente nisso, varremos uma lista de diretorios.
-    watch_dirs: List[str] = field(
+    watch_dirs: list[str] = field(
         default_factory=lambda: [
             str(Path.cwd() / "hs"),
             str(Path.cwd() / "pmkid"),
@@ -103,14 +102,14 @@ class Settings:
         ]
     )
     # Globs de extensoes que consideramos uma captura.
-    capture_globs: List[str] = field(
+    capture_globs: list[str] = field(
         default_factory=lambda: ["*.cap", "*.pcap", "*.pcapng", "*.22000", "*.16800", "*.pmkid"]
     )
 
     # --- Wordlists ---------------------------------------------------------
     # Ordem de prioridade: a primeira que existir e for valida e usada.
     # O wifite distribui sua propria wordlist "probable" no repositorio.
-    wordlists: List[str] = field(
+    wordlists: list[str] = field(
         default_factory=lambda: [
             "/usr/share/wordlists/wifite-probable.txt",
             "/usr/share/seclists/Passwords/Common-Credentials/10-million-password-list-top-1000000.txt",
@@ -125,9 +124,9 @@ class Settings:
 
     # --- Adaptadores -------------------------------------------------------
     # Adaptador 1: usado pelo wifite para captura (modo monitor + injecao).
-    capture_interface: Optional[str] = None
+    capture_interface: str | None = None
     # Adaptador 2: mantido gerenciado, usado APENAS para conectar na rede quebrada.
-    connect_interface: Optional[str] = None
+    connect_interface: str | None = None
     # Conectar automaticamente assim que a senha for descoberta.
     auto_connect: bool = False
     # Perfil de conexao criado pelo nmcli (facilita desconectar depois).
@@ -137,7 +136,7 @@ class Settings:
     # Motor preferido: "hashcat" (mais rapido) ou "aircrack" (fallback sempre presente).
     cracker_engine: str = "auto"
     # Regras do hashcat aplicadas depois da wordlist limpa (aumenta muito a cobertura).
-    hashcat_rules: List[str] = field(default_factory=lambda: ["/usr/share/hashcat/rules/best64.rule"])
+    hashcat_rules: list[str] = field(default_factory=lambda: ["/usr/share/hashcat/rules/best64.rule"])
     # Timeout por wordlist, em segundos. 0 = sem limite.
     crack_timeout: int = 0
     # Tentar ataque de mascara (8 digitos) apos esgotar as wordlists.
@@ -175,14 +174,14 @@ class Settings:
     def log_dir(self) -> Path:
         return self.state_path / "logs"
 
-    def ensure_dirs(self) -> List[str]:
+    def ensure_dirs(self) -> list[str]:
         """Cria os diretorios de estado. Devolve a lista de problemas (vazia = ok).
 
         Nao levanta excecao de proposito: `wp doctor` precisa rodar justamente
         quando os diretorios estao inacessiveis, para poder dizer o que esta
         errado. Quem decide se o problema e fatal e o chamador.
         """
-        problems: List[str] = []
+        problems: list[str] = []
         for p in (self.state_path, self.results_dir, self.log_dir):
             try:
                 p.mkdir(parents=True, exist_ok=True)
@@ -190,7 +189,7 @@ class Settings:
                 problems.append(f"{p}: {exc.strerror or exc}")
         return problems
 
-    def existing_wordlists(self) -> List[str]:
+    def existing_wordlists(self) -> list[str]:
         """Somente as wordlists que realmente existem no disco, na ordem dada."""
         out = []
         for w in self.wordlists:
@@ -203,12 +202,12 @@ class Settings:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Settings":
-        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+    def from_dict(cls, data: dict) -> Settings:
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
         return cls(**{k: v for k, v in data.items() if k in known})
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "Settings":
+    def load(cls, path: Path | None = None) -> Settings:
         """Carrega do disco, tolerando arquivo ausente ou corrompido."""
         cfg = path or CONFIG_FILE
         if not cfg.is_file():
@@ -219,14 +218,14 @@ class Settings:
             # Config invalido nunca deve impedir o trabalho: caimos nos padroes.
             return cls()
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         cfg = path or CONFIG_FILE
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.write_text(json.dumps(self.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
         return cfg
 
 
-def resolve_wordlist(explicit: Optional[str], settings: Settings) -> Optional[str]:
+def resolve_wordlist(explicit: str | None, settings: Settings) -> str | None:
     """Wordlist escolhida: a explicita, senao a primeira da lista que existir."""
     if explicit:
         return explicit if Path(explicit).is_file() else None

@@ -17,8 +17,14 @@ try:
 except ImportError:      # execucao direta: python tests/test_state.py
     from _base import TempCase  # type: ignore[no-redef]
 
-from wifite_pipeline.state import (STATUS_CRACKING, STATUS_EXHAUSTED, STATUS_FOUND,
-                                   STATUS_PENDING, State, normalize_bssid)
+from wifite_pipeline.state import (
+    STATUS_CRACKING,
+    STATUS_EXHAUSTED,
+    STATUS_FOUND,
+    STATUS_PENDING,
+    State,
+    normalize_bssid,
+)
 
 
 class StateTestCase(TempCase):

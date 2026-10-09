@@ -24,7 +24,6 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 HASHCAT_MODE_WPA = "22000"
 
@@ -37,9 +36,9 @@ HASHCAT_SHOW_RE = re.compile(r"^[0-9a-fA-F]+\*?[^:]*:(?P<key>.+)$")
 @dataclass
 class CrackResult:
     found: bool
-    password: Optional[str] = None
-    engine: Optional[str] = None
-    wordlist: Optional[str] = None
+    password: str | None = None
+    engine: str | None = None
+    wordlist: str | None = None
     elapsed: float = 0.0
     detail: str = ""
 
@@ -59,7 +58,7 @@ def hashcat_usable() -> bool:
     return "backend" in blob or "device" in blob or proc.returncode == 0
 
 
-def _run(cmd: List[str], timeout: Optional[int] = None) -> str:
+def _run(cmd: list[str], timeout: int | None = None) -> str:
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
                               errors="replace")
@@ -73,8 +72,8 @@ def _run(cmd: List[str], timeout: Optional[int] = None) -> str:
 class Cracker:
     """Executa a quebra contra uma ou mais wordlists, em ordem de prioridade."""
 
-    def __init__(self, engine: str = "auto", potfile: Optional[Path] = None,
-                 rules: Optional[List[str]] = None, timeout: int = 0,
+    def __init__(self, engine: str = "auto", potfile: Path | None = None,
+                 rules: list[str] | None = None, timeout: int = 0,
                  mask_fallback: bool = False, verbose: bool = False):
         self.verbose = verbose
         self.timeout = timeout
@@ -91,9 +90,9 @@ class Cracker:
         return engine
 
     # -- API publica ------------------------------------------------------
-    def crack(self, hash_path: Optional[Path], wordlists: List[str],
-              cap_path: Optional[Path] = None, bssid: Optional[str] = None,
-              essid: Optional[str] = None) -> CrackResult:
+    def crack(self, hash_path: Path | None, wordlists: list[str],
+              cap_path: Path | None = None, bssid: str | None = None,
+              essid: str | None = None) -> CrackResult:
         """Tenta cada wordlist ate encontrar a senha."""
         started = time.time()
         usable = [w for w in wordlists if w and Path(w).is_file()]
@@ -153,7 +152,7 @@ class Cracker:
 
         # 2) tentativa com regras -- custo maior, cobertura muito maior
         for rule in self.rules:
-            cmd = base + ["-r", rule]
+            cmd = [*base, "-r", rule]
             out = _run(cmd, timeout=self.timeout or None)
             if out == "__TIMEOUT__":
                 continue
@@ -171,13 +170,13 @@ class Cracker:
         cmd = ["hashcat", "-m", HASHCAT_MODE_WPA, str(hash_path), "-a", "3",
                "?d?d?d?d?d?d?d?d",
                "--potfile-path", str(self.potfile), "--quiet", "-O", "--force"]
-        out = _run(cmd, timeout=self.timeout or None)
+        _run(cmd, timeout=self.timeout or None)
         hit = self._hashcat_lookup(hash_path)
         if hit:
             return CrackResult(True, password=hit, engine="hashcat", detail="mascara 8 digitos")
         return CrackResult(False, engine="hashcat", detail="mascara sem sucesso")
 
-    def _hashcat_lookup(self, hash_path: Path) -> Optional[str]:
+    def _hashcat_lookup(self, hash_path: Path) -> str | None:
         """Le a senha do potfile. Fonte da verdade: o potfile, nao o stdout."""
         if self.potfile.is_file():
             for line in self.potfile.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -195,8 +194,8 @@ class Cracker:
         return None
 
     # -- aircrack-ng ------------------------------------------------------
-    def _aircrack(self, cap_path: Path, wordlist: Path, bssid: Optional[str],
-                  essid: Optional[str]) -> CrackResult:
+    def _aircrack(self, cap_path: Path, wordlist: Path, bssid: str | None,
+                  essid: str | None) -> CrackResult:
         if not shutil.which("aircrack-ng"):
             return CrackResult(False, engine="aircrack", detail="aircrack-ng ausente")
         cmd = ["aircrack-ng", "-w", str(wordlist), str(cap_path)]

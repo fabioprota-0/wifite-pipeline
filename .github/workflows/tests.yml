@@ -13,8 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.9 e o minimo suportado; 3.12 e o que a Kali atual usa.
-        python-version: ["3.9", "3.11", "3.12"]
+        # 3.10 e o minimo suportado (ver requires-python no pyproject.toml).
+        # 3.9 saiu da matriz: chegou ao fim da vida e nao roda o Kali atual.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -24,19 +25,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Confirmar que nao ha dependencias externas
+        # Feito com regex em vez de `tomllib`: tomllib so existe a partir do
+        # 3.11, e este passo precisa rodar tambem no 3.10.
         run: |
           python - <<'EOF'
-          import tomllib, pathlib, sys
-          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
-          deps = data["project"].get("dependencies", [])
-          if deps:
-              sys.exit(f"ERRO: o projeto deve continuar sem dependencias, achei {deps}")
+          import pathlib, re, sys
+          texto = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          bloco = re.search(r"^dependencies\s*=\s*\[(.*?)\]", texto, re.S | re.M)
+          itens = [x.strip() for x in bloco.group(1).split(",") if x.strip()] if bloco else []
+          if itens:
+              sys.exit(f"ERRO: o projeto deve continuar sem dependencias, achei {itens}")
           print("OK: zero dependencias de runtime")
           EOF
-        if: matrix.python-version != '3.9'
 
       - name: Checar sintaxe de todos os modulos
-        run: python -m compileall -q wifite_pipeline scripts
+        run: python -m compileall -q wifite_pipeline scripts tests
 
       - name: Rodar a suite de testes
         run: python -m unittest discover -s tests -t . -v
@@ -53,7 +56,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Instalar ruff
-        run: pip install ruff
+        # Versao fixada de proposito: assim uma atualizacao do linter nunca
+        # reprova a CI sozinha. Suba esta versao de forma deliberada.
+        # As regras ativas estao declaradas em [tool.ruff.lint] no pyproject.toml.
+        run: pip install "ruff==0.16.10"
+
       - name: Checar estilo
         run: ruff check wifite_pipeline scripts tests

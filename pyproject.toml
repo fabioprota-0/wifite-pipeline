@@ -7,7 +7,7 @@ name = "wifite-pipeline"
 version = "0.1.0"
 description = "Orquestrador que transforma o wifite num pipeline paralelo: captura -> quebra -> resultado -> conexao, em 4 paineis tmux."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Fabio Prota", email = "jiujitsuterra@hotmail.com" }]
 keywords = ["wifi", "wpa", "handshake", "pmkid", "wifite", "pentest", "hashcat", "security"]
@@ -46,4 +46,30 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+# 3.10+ permite `list[str]` e `str | None` nativamente, sem depender do
+# `from __future__ import annotations`. Kali Linux ja traz 3.11 ou mais novo.
+target-version = "py310"
+
+[tool.ruff.lint]
+# Conjunto DECLARADO de proposito. Sem isto, o ruff usa um padrao que muda
+# entre versoes: uma atualizacao do linter passaria a reprovar codigo que
+# antes passava, e a CI quebraria sozinha sem ninguem mexer em nada.
+select = [
+    "E4", "E7", "E9",   # pycodestyle: erros reais de sintaxe/indentacao
+    "W",                # pycodestyle: avisos
+    "F",                # pyflakes: codigo morto, nome indefinido, import sobrando
+    "I",                # isort: ordem e agrupamento de imports
+    "UP",               # pyupgrade: sintaxe obsoleta para a versao alvo
+    "B",                # bugbear: armadilhas comuns do Python
+    "C4",               # comprehensions simplificaveis
+    "SIM",              # simplificacoes de expressao
+    "PIE",              # problemas diversos
+    "RUF",              # regras do proprio ruff
+]
+ignore = [
+    # E501 (linha longa) e incompativel com `ruff format` em strings longas:
+    # o formatador nao quebra strings, entao a regra acusa o que ele nao
+    # consegue consertar. O limite de 100 colunas acima continua valendo como
+    # guia para codigo.
+    "E501",
+]

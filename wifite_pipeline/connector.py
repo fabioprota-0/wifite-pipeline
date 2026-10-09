@@ -21,7 +21,6 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 WIRELESS_MARKERS = ("wlan", "wlp", "wlx", "ath", "wl")
 
@@ -29,13 +28,13 @@ WIRELESS_MARKERS = ("wlan", "wlp", "wlx", "ath", "wl")
 @dataclass
 class ConnectResult:
     ok: bool
-    interface: Optional[str] = None
-    profile: Optional[str] = None
-    ip_address: Optional[str] = None
+    interface: str | None = None
+    profile: str | None = None
+    ip_address: str | None = None
     detail: str = ""
 
 
-def _run(cmd: List[str], timeout: int = 60) -> str:
+def _run(cmd: list[str], timeout: int = 60) -> str:
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
                               errors="replace")
@@ -46,9 +45,9 @@ def _run(cmd: List[str], timeout: int = 60) -> str:
         return f"__ERROR__ {exc}"
 
 
-def list_interfaces() -> List[str]:
+def list_interfaces() -> list[str]:
     """Adaptadores de rede sem fio visiveis no sistema."""
-    out: List[str] = []
+    out: list[str] = []
     netdir = Path("/sys/class/net")
     if netdir.is_dir():
         for entry in sorted(netdir.iterdir()):
@@ -70,14 +69,14 @@ def interface_state(interface: str) -> str:
     return m.group(1) if m else "desconhecido"
 
 
-def interface_ip(interface: str) -> Optional[str]:
+def interface_ip(interface: str) -> str | None:
     blob = _run(["ip", "-4", "addr", "show", interface])
     m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", blob)
     return m.group(1) if m else None
 
 
 def connect(ssid: str, password: str, interface: str,
-            profile: Optional[str] = None, timeout: int = 60) -> ConnectResult:
+            profile: str | None = None, timeout: int = 60) -> ConnectResult:
     """Associa-se a rede pelo `nmcli`, sem tocar no adaptador de captura."""
     if not shutil.which("nmcli"):
         return ConnectResult(False, interface=interface,
@@ -123,10 +122,10 @@ def forget(profile: str) -> bool:
     return "Error" not in out
 
 
-def validate_second_adapter(capture_if: Optional[str],
-                            connect_if: Optional[str]) -> List[str]:
+def validate_second_adapter(capture_if: str | None,
+                            connect_if: str | None) -> list[str]:
     """Problemas que impedem a conexao automatica. Lista vazia = tudo certo."""
-    problems: List[str] = []
+    problems: list[str] = []
     interfaces = list_interfaces()
     if not interfaces:
         problems.append("nenhum adaptador sem fio detectado")

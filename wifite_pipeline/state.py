@@ -15,6 +15,7 @@ Detalhes importantes de concorrencia:
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import hashlib
 import json
@@ -24,7 +25,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Estados possiveis de um alvo
@@ -67,7 +68,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
-def normalize_bssid(value: Optional[str]) -> Optional[str]:
+def normalize_bssid(value: str | None) -> str | None:
     """'aabbccddeeff' / 'AA-BB-...' -> 'AA:BB:CC:DD:EE:FF'. None se invalido."""
     if not value:
         return None
@@ -83,18 +84,18 @@ class Target:
     """Uma rede capturada e seu progresso de quebra."""
 
     bssid: str
-    ssid: Optional[str] = None
-    channel: Optional[int] = None
-    capture_path: Optional[str] = None
-    hash_path: Optional[str] = None
+    ssid: str | None = None
+    channel: int | None = None
+    capture_path: str | None = None
+    hash_path: str | None = None
     status: str = STATUS_PENDING
-    password: Optional[str] = None
-    method: Optional[str] = None
+    password: str | None = None
+    method: str | None = None
     attempts: int = 0
-    id: Optional[int] = None
+    id: int | None = None
     created_at: str = field(default_factory=now_iso)
     updated_at: str = field(default_factory=now_iso)
-    note: Optional[str] = None
+    note: str | None = None
 
     @property
     def label(self) -> str:
@@ -102,10 +103,10 @@ class Target:
         return f"{name} ({self.bssid})"
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "Target":
+    def from_row(cls, row: sqlite3.Row) -> Target:
         data = dict(row)
         data.pop("rowid", None)
-        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
         return cls(**{k: v for k, v in data.items() if k in known})
 
 
@@ -114,7 +115,7 @@ class ImportReport:
     added: int = 0
     updated: int = 0
     skipped: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -178,7 +179,7 @@ class State:
                                    isolation_level=None)  # autocommit: controlamos nos
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=%d" % int(self.timeout * 1000))
+            conn.execute(f"PRAGMA busy_timeout={int(self.timeout * 1000)}")
             conn.execute("PRAGMA foreign_keys=ON")
             self._local.conn = conn
         return conn
@@ -189,7 +190,7 @@ class State:
             conn.close()
             self._local.conn = None
 
-    def __enter__(self) -> "State":
+    def __enter__(self) -> State:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -199,9 +200,9 @@ class State:
         self.conn.executescript(SCHEMA)
 
     # -- fila -------------------------------------------------------------
-    def enqueue(self, bssid: str, ssid: Optional[str] = None, channel: Optional[int] = None,
-                capture_path: Optional[str] = None, hash_path: Optional[str] = None,
-                note: Optional[str] = None) -> Optional[int]:
+    def enqueue(self, bssid: str, ssid: str | None = None, channel: int | None = None,
+                capture_path: str | None = None, hash_path: str | None = None,
+                note: str | None = None) -> int | None:
         """Insere um alvo. Devolve o id, ou None se ja existia essa captura."""
         bssid = normalize_bssid(bssid) or bssid
         ts = now_iso()
@@ -218,7 +219,7 @@ class State:
         self.log_event("info", f"enfileirado: {ssid or bssid}", target_id)
         return target_id
 
-    def claim_next(self) -> Optional[Target]:
+    def claim_next(self) -> Target | None:
         """Pega o proximo alvo pendente e o marca como 'cracking'.
 
         Atomico: usa BEGIN IMMEDIATE para que dois workers concorrentes nunca
@@ -243,19 +244,17 @@ class State:
             target.status = STATUS_CRACKING
             return target
         except sqlite3.Error:
-            try:
+            with contextlib.suppress(sqlite3.Error):
                 conn.execute("ROLLBACK")
-            except sqlite3.Error:
-                pass
             raise
 
-    def set_status(self, target_id: int, status: str, *, password: Optional[str] = None,
-                   method: Optional[str] = None, note: Optional[str] = None,
+    def set_status(self, target_id: int, status: str, *, password: str | None = None,
+                   method: str | None = None, note: str | None = None,
                    bump_attempts: bool = False) -> None:
         if status not in ALL_STATUSES:
             raise ValueError(f"status invalido: {status}")
         sets = ["status = ?", "updated_at = ?"]
-        args: List[Any] = [status, now_iso()]
+        args: list[Any] = [status, now_iso()]
         if password is not None:
             sets.append("password = ?")
             args.append(password)
@@ -277,18 +276,18 @@ class State:
         self.log_event("success", f"senha encontrada via {method}", target_id)
 
     # -- consultas --------------------------------------------------------
-    def get(self, target_id: int) -> Optional[Target]:
+    def get(self, target_id: int) -> Target | None:
         row = self.conn.execute("SELECT * FROM targets WHERE id = ?", (target_id,)).fetchone()
         return Target.from_row(row) if row else None
 
-    def find_by_bssid(self, bssid: str) -> List[Target]:
+    def find_by_bssid(self, bssid: str) -> list[Target]:
         norm = normalize_bssid(bssid) or bssid
         rows = self.conn.execute(
             "SELECT * FROM targets WHERE bssid = ? ORDER BY id DESC", (norm,)
         ).fetchall()
         return [Target.from_row(r) for r in rows]
 
-    def list_targets(self, status: Optional[str] = None, limit: int = 500) -> List[Target]:
+    def list_targets(self, status: str | None = None, limit: int = 500) -> list[Target]:
         if status:
             rows = self.conn.execute(
                 "SELECT * FROM targets WHERE status = ? ORDER BY id LIMIT ?", (status, limit)
@@ -299,14 +298,14 @@ class State:
             ).fetchall()
         return [Target.from_row(r) for r in rows]
 
-    def results(self) -> List[Target]:
+    def results(self) -> list[Target]:
         rows = self.conn.execute(
             "SELECT * FROM targets WHERE status = ? AND password IS NOT NULL ORDER BY updated_at DESC",
             (STATUS_FOUND,),
         ).fetchall()
         return [Target.from_row(r) for r in rows]
 
-    def known_password(self, ssid: Optional[str], bssid: Optional[str]) -> Optional[str]:
+    def known_password(self, ssid: str | None, bssid: str | None) -> str | None:
         """Senha ja descoberta para esta rede, em qualquer captura anterior.
 
         Melhoria central do pipeline: se a rede ja foi quebrada, nao gastamos
@@ -330,11 +329,11 @@ class State:
             ).fetchone()
         return row["password"] if row else None
 
-    def counts(self) -> Dict[str, int]:
+    def counts(self) -> dict[str, int]:
         rows = self.conn.execute(
             "SELECT status, COUNT(*) AS n FROM targets GROUP BY status"
         ).fetchall()
-        out = {s: 0 for s in ALL_STATUSES}
+        out = dict.fromkeys(ALL_STATUSES, 0)
         for r in rows:
             out[r["status"]] = r["n"]
         out["total"] = sum(out[s] for s in ALL_STATUSES)
@@ -361,13 +360,13 @@ class State:
         return cur.rowcount
 
     # -- eventos ----------------------------------------------------------
-    def log_event(self, level: str, message: str, target_id: Optional[int] = None) -> None:
+    def log_event(self, level: str, message: str, target_id: int | None = None) -> None:
         self.conn.execute(
             "INSERT INTO events (ts, level, target_id, message) VALUES (?, ?, ?, ?)",
             (now_iso(), level, target_id, message),
         )
 
-    def recent_events(self, limit: int = 20) -> List[sqlite3.Row]:
+    def recent_events(self, limit: int = 20) -> list[sqlite3.Row]:
         return self.conn.execute(
             "SELECT * FROM events ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
@@ -430,12 +429,12 @@ class State:
             self._apply_import(rec, report)
         return report
 
-    def _parse_import(self, path: Path, text: str, report: ImportReport) -> List[dict]:
+    def _parse_import(self, path: Path, text: str, report: ImportReport) -> list[dict]:
         suffix = path.suffix.lower()
         stripped = text.lstrip()
 
         # 1) JSON
-        if suffix == ".json" or stripped.startswith("[") or stripped.startswith("{"):
+        if suffix == ".json" or stripped.startswith(("[", "{")):
             try:
                 data = json.loads(text)
                 if isinstance(data, dict):
@@ -470,7 +469,7 @@ class State:
         return out
 
     @staticmethod
-    def _parse_text_line(line: str) -> Optional[dict]:
+    def _parse_text_line(line: str) -> dict | None:
         """Interpreta uma linha de texto em {ssid, bssid, password}.
 
         A ORDEM das tentativas importa. A tabela vem primeiro porque o BSSID
@@ -545,7 +544,7 @@ class State:
         report.updated += 1 if changed else 0
         report.skipped += 0 if changed else 1
 
-    def _insert_imported(self, ssid: Optional[str], bssid: str, password: str, method: str) -> None:
+    def _insert_imported(self, ssid: str | None, bssid: str, password: str, method: str) -> None:
         ts = now_iso()
         self.conn.execute(
             """INSERT INTO targets (bssid, ssid, status, password, method, note,

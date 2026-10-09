@@ -29,10 +29,10 @@ from pathlib import Path
 # Permite rodar direto do repositorio, sem instalar.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from wifite_pipeline import tui                                   # noqa: E402
-from wifite_pipeline.config import Settings                        # noqa: E402
-from wifite_pipeline.state import State                            # noqa: E402
-from wifite_pipeline.watcher import Watcher                        # noqa: E402
+from wifite_pipeline import tui
+from wifite_pipeline.config import Settings
+from wifite_pipeline.state import State
+from wifite_pipeline.watcher import Watcher
 
 # Capturas falsas: nomes no padrao que o wifite/airodump produzem.
 # BSSID com HIFENS no nome do arquivo -- e assim que o airodump-ng nomeia de
