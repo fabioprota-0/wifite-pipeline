@@ -27,6 +27,7 @@ from .config import (
     TOOLS,
     Settings,
     find_tool,
+    is_compressed,
     missing_required_tools,
     resolve_wordlist,
 )
@@ -170,12 +171,22 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     print("\n" + tui.paint("WORDLISTS", tui.C.BOLD))
     existing = settings.existing_wordlists()
-    if not existing:
+    comprimidas = settings.compressed_wordlists()
+    if not existing and not comprimidas:
         print(tui.paint("  nenhuma wordlist encontrada", tui.C.RED))
         print(tui.paint("  Instale o SecLists: sudo apt install seclists", tui.C.GREY))
     for w in settings.wordlists:
-        mark = tui.paint("OK  ", tui.C.GREEN) if Path(w).is_file() else tui.paint("--  ", tui.C.GREY)
+        if not Path(w).is_file():
+            mark = tui.paint("--  ", tui.C.GREY)
+        elif is_compressed(w):
+            mark = tui.paint("GZ  ", tui.C.YELLOW)
+        else:
+            mark = tui.paint("OK  ", tui.C.GREEN)
         print(f"  [{mark}] {w}")
+    if comprimidas:
+        print(tui.paint("\n  Comprimidas sao IGNORADAS na quebra: o hashcat nao le .gz.", tui.C.YELLOW))
+        for w in comprimidas:
+            print(tui.paint(f"    para usar:  sudo gunzip -k {w}", tui.C.CYAN))
 
     print("\n" + tui.paint("DIRETORIOS VIGIADOS", tui.C.BOLD))
     for d in settings.watch_dirs:
@@ -279,6 +290,8 @@ def cmd_crack(args: argparse.Namespace) -> int:
     if not settings.existing_wordlists():
         print(tui.paint("nenhuma wordlist valida. Use --wordlist CAMINHO ou instale o seclists.",
                         tui.C.RED))
+        for w in settings.compressed_wordlists():
+            print(tui.paint(f"  {w} existe, mas esta comprimida: sudo gunzip -k {w}", tui.C.YELLOW))
         return 1
 
     cracker = Cracker(
@@ -421,8 +434,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.dual_interface:
         extra = f"--dual-interface {extra}".strip()
 
-    panes = build_panes(settings, wifite_args=extra,
-                        wordlist=resolve_wordlist(args.wordlist, settings))
+    wordlist = resolve_wordlist(args.wordlist, settings)
+    if args.wordlist and wordlist is None:
+        motivo = "esta comprimida" if is_compressed(args.wordlist) else "nao existe"
+        print(tui.paint(f"aviso: a wordlist {args.wordlist} {motivo}.", tui.C.YELLOW))
+        if is_compressed(args.wordlist):
+            print(tui.paint(f"  descompacte com: sudo gunzip -k {args.wordlist}", tui.C.GREY))
+    panes = build_panes(settings, wifite_args=extra, wordlist=wordlist)
     if args.no_tmux:
         print_manual_layout(panes)
         return 0

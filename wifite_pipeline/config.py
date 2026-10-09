@@ -74,6 +74,18 @@ TOOLS: dict[str, dict[str, object]] = {
 }
 
 
+# Extensoes que indicam wordlist ainda COMPRIMIDA. Nem o hashcat nem o
+# aircrack-ng descompactam: passar um .gz para eles produziria lixo silencioso
+# em vez de candidatos. Na Kali o rockyou vem assim de fabrica
+# (rockyou.txt.gz), entao este e o caso COMUM, nao a excecao.
+COMPRESSED_SUFFIXES = (".gz", ".bz2", ".xz", ".zip", ".7z", ".tar", ".tgz")
+
+
+def is_compressed(path) -> bool:
+    """True se o arquivo parece ser uma wordlist ainda comprimida."""
+    return str(path).lower().endswith(COMPRESSED_SUFFIXES)
+
+
 def find_tool(name: str) -> str | None:
     """Caminho absoluto do binario, ou None se ausente."""
     return shutil.which(name)
@@ -190,12 +202,21 @@ class Settings:
         return problems
 
     def existing_wordlists(self) -> list[str]:
-        """Somente as wordlists que realmente existem no disco, na ordem dada."""
+        """Wordlists PRONTAS para uso, na ordem dada.
+
+        Arquivos comprimidos ficam de fora: o hashcat e o aircrack-ng nao
+        descompactam, entao passar um .gz produziria lixo. Use
+        `compressed_wordlists()` para listar o que precisa ser descompactado.
+        """
         out = []
         for w in self.wordlists:
-            if w and Path(w).is_file():
+            if w and Path(w).is_file() and not is_compressed(w):
                 out.append(w)
         return out
+
+    def compressed_wordlists(self) -> list[str]:
+        """Wordlists que existem no disco mas ainda estao comprimidas."""
+        return [w for w in self.wordlists if w and Path(w).is_file() and is_compressed(w)]
 
     # ------------------------------------------------------------------
     def to_dict(self) -> dict:
@@ -226,8 +247,15 @@ class Settings:
 
 
 def resolve_wordlist(explicit: str | None, settings: Settings) -> str | None:
-    """Wordlist escolhida: a explicita, senao a primeira da lista que existir."""
+    """Wordlist escolhida: a explicita, senao a primeira da lista que existir.
+
+    Devolve None tanto para arquivo ausente quanto para arquivo COMPRIMIDO --
+    nos dois casos a wordlist nao serve. Quem chama deve avisar o usuario, e
+    `wp doctor` mostra o comando exato para descompactar.
+    """
     if explicit:
-        return explicit if Path(explicit).is_file() else None
+        if not Path(explicit).is_file() or is_compressed(explicit):
+            return None
+        return explicit
     found = settings.existing_wordlists()
     return found[0] if found else None
