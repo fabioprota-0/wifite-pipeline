@@ -253,6 +253,7 @@ and real captures use `:`-separated BSSIDs.
 | `connect: nmcli ausente` | `sudo apt install network-manager` |
 | Capture never enters the queue | The file never stabilised, or no handshake/PMKID was validated. Check `wp watch -v` |
 | hashcat finds nothing but aircrack does | hashcat has no OpenCL backend â€” install `pocl-opencl-icd`, or use `--engine aircrack` |
+| `sudo: wp: command not found` | The `wp` wrapper lives in `/usr/local/bin/wp`, which is in sudo's `secure_path`. If you installed with `pipx` or `pip install --user` instead, `wp` lands in `~/.local/bin` (not in sudo's PATH): use `sudo env "PATH=$PATH" wp ...` or `sudo python3 bin/wp ...` |
 | Nothing cracks | WPA cracking is ~5â€“20 k candidates/s per CPU core. Order of wordlists matters far more than engine speed |
 
 ## Roadmap
