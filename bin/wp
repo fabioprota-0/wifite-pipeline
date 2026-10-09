@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""Launcher do `wp` para rodar direto do repositorio, sem instalar.
+
+    sudo ./bin/wp doctor
+    sudo ./bin/wp run --capture-interface wlan0
+
+Nao e necessario se voce instalou com `pip install .` ou via scripts/install.sh:
+nesses casos o comando `wp` ja esta no PATH.
+"""
+
+import sys
+from pathlib import Path
+
+# Coloca a raiz do repositorio no caminho de importacao.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from wifite_pipeline.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

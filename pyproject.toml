@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wifite-pipeline"
+version = "0.1.0"
+description = "Orquestrador que transforma o wifite num pipeline paralelo: captura -> quebra -> resultado -> conexao, em 4 paineis tmux."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Fabio Prota", email = "jiujitsuterra@hotmail.com" }]
+keywords = ["wifi", "wpa", "handshake", "pmkid", "wifite", "pentest", "hashcat", "security"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+
+# Nenhuma dependencia externa obrigatoria: o projeto usa apenas a biblioteca
+# padrao do Python. As ferramentas que ele orquestra (wifite, hashcat,
+# aircrack-ng, hcxtools, nmcli) sao binarios do sistema, verificados em
+# tempo de execucao pelo comando `wp doctor`.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+
+[project.scripts]
+wp = "wifite_pipeline.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/fabioprota-0/wifite-pipeline"
+Issues = "https://github.com/fabioprota-0/wifite-pipeline/issues"
+
+[tool.setuptools]
+packages = ["wifite_pipeline"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

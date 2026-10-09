@@ -1,0 +1,25 @@
+# Normalizacao de fim de linha.
+#
+# Sem isso, o Git no Windows converte LF -> CRLF ao dar checkout, e
+# `scripts/install.sh` passa a falhar no Linux com a mensagem enganosa
+# "\r: command not found". Este projeto roda em Kali/Debian, entao a regra e
+# simples: TUDO fica em LF, inclusive nos arquivos de script.
+* text=auto eol=lf
+
+# Shell precisa ser LF, sem excecao.
+*.sh    text eol=lf
+bin/wp  text eol=lf
+
+# Python, docs e config tambem em LF.
+*.py    text eol=lf
+*.md    text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+
+# Arquivos que o Git nao deve tentar normalizar nem mostrar em diffs.
+*.png   binary
+*.cap   binary
+*.pcap  binary
+*.pcapng binary
+*.22000 binary
+*.vdi   binary

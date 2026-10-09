@@ -1,0 +1,79 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ---- Ambientes virtuais ----
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# ---- Testes / cobertura ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# ---- Editores ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- DADOS SENSIVEIS: NUNCA SUBIR PARA O GITHUB ----
+# Handshakes capturados, hashes, senhas quebradas e o banco de fila.
+# Estes arquivos contem credenciais reais de redes. Jamais versione.
+hs/
+pmkid/
+captures/
+*.cap
+*.pcap
+*.pcapng
+*.22000
+*.16800
+*.pmkid
+*.hccapx
+cracked.txt
+cracked.json
+cracked.csv
+pipeline.db
+pipeline.db-journal
+pipeline.db-wal
+pipeline.db-shm
+results/
+logs/
+queue/
+*.log
+
+# ---- Sistema ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Rascunho local de testes/demo ----
+.scratch/
